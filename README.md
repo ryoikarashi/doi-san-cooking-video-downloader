@@ -40,3 +40,5 @@ npx tsc download.ts && node download.js
 - Your video destination folder, `VIDEO_DEST` will be roughly **50GB**. So be sure to have enough disk space.
 - You need to be a premium member to download videos.
 - For only offline use.
+
+# Enjoy Cooking! :)
