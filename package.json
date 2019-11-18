@@ -1,0 +1,21 @@
+{
+  "name": "doi-cooking-downloader",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "Ryo Ikarashi <ryo.5630@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "@types/dotenv": "^8.2.0",
+    "@types/fluent-ffmpeg": "^2.1.11",
+    "@types/node": "^12.12.7",
+    "@types/node-fetch": "^2.5.3",
+    "dotenv": "^8.2.0",
+    "fluent-ffmpeg": "^2.1.2",
+    "fs": "^0.0.1-security",
+    "google-auth-library": "^5.5.1",
+    "googleapis": "^45.0.0",
+    "node-fetch": "^2.6.0",
+    "readline": "^1.3.0",
+    "typescript": "^3.7.2"
+  }
+}
