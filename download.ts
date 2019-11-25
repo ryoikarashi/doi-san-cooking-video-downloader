@@ -86,7 +86,7 @@ const findOrCreateDirectory = (endpointKey: string) => {
 
 const downloadM3u8 = async (url: string, title: string, directory: string) => {
     if (!url.match(/^https:\/\/n\.yapp\.li\//)) throw new Error('unexpected m3u8 link');
-    const output = `${directory}/${title}.m3u8`;
+    const output = join(directory, `${title}.m3u8`);
     if (existsSync(output)) {
         console.log(`Skip downloading because ${output} is already downloaded.`);
         return output;
@@ -101,7 +101,7 @@ const downloadM3u8 = async (url: string, title: string, directory: string) => {
 };
 
 const convertM3u8ToMp4 = async (m3u8: string, title: string, directory: string)  => {
-    const output = `${directory}/${title}.mp4`;
+    const output = join(directory, `${title}.mp4`);
     if (existsSync(output)) {
         console.log(`Skip downloading because ${output} is already downloaded.`);
         return output;
