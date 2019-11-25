@@ -26,7 +26,7 @@ API_VERSION=YAPPLI_API_VERSION
 USER_AGENT=YOUR_USER_AGENT
 X_UDID=YOUR_X_UDID
 X_ADID=YOUR_X_ADID
-VIDEO_DEST=YOUR_VIDEO_DESTINATION
+VIDEO_DEST='./videos' (You can change it to whatever you want)
 ```
 
 Finally, run this code below.
