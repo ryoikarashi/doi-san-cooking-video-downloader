@@ -29,11 +29,12 @@ const YAPPLI_INFO = {
 const API_ENDPOINT = `${YAPPLI_INFO.protocol}://${YAPPLI_INFO.host}:${YAPPLI_INFO.port}${YAPPLI_INFO.apiPath}`;
 
 const ENDPOINTS = {
-    normalVideos: `${API_ENDPOINT}/tab/bio/a608b295`,
+    // normalVideos: `${API_ENDPOINT}/tab/bio/a608b295`,
     wanokokoroVideos: `${API_ENDPOINT}/tab/bio/b6ce08d3`,
+    // specialVideos: `${API_ENDPOINT}/tab/bio/a1e886ec`,
 };
 
-const getEntries = async (endpoint: string): Promise<Array<Entry>> => {
+const getEntries = async (endpoint: string) => {
     const response = await fetch(endpoint, {
         method: 'GET',
         headers: REQUEST_HEADER,
@@ -42,7 +43,7 @@ const getEntries = async (endpoint: string): Promise<Array<Entry>> => {
     return data.feed.entry;
 };
 
-const getEntryDetail = async (entry: Entry): Promise<Array<Entry>> => {
+const getEntryDetail = async (entry: Entry) => {
     if (!entry || !entry.link || !entry.link[0]) throw new Error('unexpected entry link');
     const response = await fetch(entry.link[0]._href, {
        method: 'GET',
@@ -52,7 +53,7 @@ const getEntryDetail = async (entry: Entry): Promise<Array<Entry>> => {
     return data.feed.entry;
 };
 
-const getVideoDetail = async (entryDetail: Array<Entry>): Promise<Array<Entry>> => {
+const getVideoDetail = async (entryDetail: Array<Entry>) => {
     if (!entryDetail || !entryDetail[0].link) throw new Error('unexpected video detail');
     const videoUrl =  entryDetail[0].link[0]._href;
     if (!videoUrl) throw new Error('unexpected video url');
@@ -71,10 +72,10 @@ const getVideoUrl = (videoDetail: Array<Entry>): string => {
 
 const getVideoTitle = (videoDetail: Array<Entry>): string => {
     if (!videoDetail || !videoDetail[0].title) throw new Error('unexpected video title');
-    return videoDetail[0].title.replace(/\s/g, '');
+    return videoDetail[0].title.replace(/(\s|\/|\.)/g, '');
 };
 
-const downloadM3u8 = async (url: string, title: string, endpointKey: string): Promise<string> => {
+const downloadM3u8 = async (url: string, title: string, endpointKey: string) => {
     if (!url.match(/^https:\/\/n\.yapp\.li\//)) throw new Error('unexpected m3u8 link');
     const output = `${process.env.VIDEO_DEST}/${endpointKey}/${title}.m3u8`;
     if (existsSync(output)) {
@@ -90,7 +91,7 @@ const downloadM3u8 = async (url: string, title: string, endpointKey: string): Pr
     return output;
 };
 
-const convertM3u8ToMp4 = async (m3u8: string, title: string, endpointKey: string): Promise<string> => {
+const convertM3u8ToMp4 = async (m3u8: string, title: string, endpointKey: string)  => {
     const output = `${process.env.VIDEO_DEST}/${endpointKey}/${title}.mp4`;
     if (existsSync(output)) {
         console.log(`Skip downloading because ${output} is already downloaded.`);
@@ -113,7 +114,7 @@ const downloadVideos = async (endpoint: [string, string]) => {
             const m3u8 = await downloadM3u8(videoUrl, videoTitle, endpoint[0]);
             const mp4 = await convertM3u8ToMp4(m3u8, videoTitle, endpoint[0]);
             // YoutubeUploader(mp4);
-        } catch (err) {}
+        } catch (err) {console.log(err);}
     }
 };
 
