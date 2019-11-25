@@ -1,7 +1,8 @@
 import fetch from 'node-fetch';
+import { join } from 'path';
 import { promisify } from 'util';
 import { pipeline } from 'stream';
-import { createWriteStream, existsSync } from 'fs';
+import { createWriteStream, existsSync, mkdirSync } from 'fs';
 import { execSync } from 'child_process';
 import { config } from 'dotenv';
 import { Entry, YappliResponse } from "./response";
@@ -29,9 +30,9 @@ const YAPPLI_INFO = {
 const API_ENDPOINT = `${YAPPLI_INFO.protocol}://${YAPPLI_INFO.host}:${YAPPLI_INFO.port}${YAPPLI_INFO.apiPath}`;
 
 const ENDPOINTS = {
-    // normalVideos: `${API_ENDPOINT}/tab/bio/a608b295`,
+    normalVideos: `${API_ENDPOINT}/tab/bio/a608b295`,
     wanokokoroVideos: `${API_ENDPOINT}/tab/bio/b6ce08d3`,
-    // specialVideos: `${API_ENDPOINT}/tab/bio/a1e886ec`,
+    specialVideos: `${API_ENDPOINT}/tab/bio/a1e886ec`,
 };
 
 const getEntries = async (endpoint: string) => {
@@ -75,9 +76,17 @@ const getVideoTitle = (videoDetail: Array<Entry>): string => {
     return videoDetail[0].title.replace(/(\s|\/|\.)/g, '');
 };
 
-const downloadM3u8 = async (url: string, title: string, endpointKey: string) => {
+const findOrCreateDirectory = (endpointKey: string) => {
+    const directoryPath = join(process.env.VIDEO_DEST, endpointKey);
+    if (!existsSync(directoryPath)) {
+        mkdirSync(directoryPath, { recursive: true });
+    }
+    return directoryPath;
+};
+
+const downloadM3u8 = async (url: string, title: string, directory: string) => {
     if (!url.match(/^https:\/\/n\.yapp\.li\//)) throw new Error('unexpected m3u8 link');
-    const output = `${process.env.VIDEO_DEST}/${endpointKey}/${title}.m3u8`;
+    const output = `${directory}/${title}.m3u8`;
     if (existsSync(output)) {
         console.log(`Skip downloading because ${output} is already downloaded.`);
         return output;
@@ -91,8 +100,8 @@ const downloadM3u8 = async (url: string, title: string, endpointKey: string) => 
     return output;
 };
 
-const convertM3u8ToMp4 = async (m3u8: string, title: string, endpointKey: string)  => {
-    const output = `${process.env.VIDEO_DEST}/${endpointKey}/${title}.mp4`;
+const convertM3u8ToMp4 = async (m3u8: string, title: string, directory: string)  => {
+    const output = `${directory}/${title}.mp4`;
     if (existsSync(output)) {
         console.log(`Skip downloading because ${output} is already downloaded.`);
         return output;
@@ -111,10 +120,11 @@ const downloadVideos = async (endpoint: [string, string]) => {
             const videoData = endpoint[0] === 'wanokokoroVideos' ? entryData : await getVideoDetail(entryData);
             const videoUrl = getVideoUrl(videoData);
             const videoTitle = getVideoTitle(videoData);
-            const m3u8 = await downloadM3u8(videoUrl, videoTitle, endpoint[0]);
-            const mp4 = await convertM3u8ToMp4(m3u8, videoTitle, endpoint[0]);
+            const directory = findOrCreateDirectory(endpoint[0]);
+            const m3u8 = await downloadM3u8(videoUrl, videoTitle, directory);
+            const mp4 = await convertM3u8ToMp4(m3u8, videoTitle, directory);
             // YoutubeUploader(mp4);
-        } catch (err) {console.log(err);}
+        } catch (err) {}
     }
 };
 
