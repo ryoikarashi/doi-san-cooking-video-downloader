@@ -119,9 +119,8 @@ function storeToken(token) {
  * @param {String} thumbnailUrl Thumbnail url of a video
  */
 const startUploadingVideoAndThumbnail = (videoFilePath: string, videoTitle: string, videoDescription: string, thumbnailUrl: string) => async (auth) => {
-    // const { id } = await uploadVideo(auth, videoFilePath, videoTitle, videoDescription);
-    // await uploadThumbnail(auth, id, thumbnailUrl)
-    await uploadThumbnail(auth, 'tOUsoXzFpQw', thumbnailUrl)
+    const { id } = await uploadVideo(auth, videoFilePath, videoTitle, videoDescription);
+    await uploadThumbnail(auth, id, thumbnailUrl);
 };
 
 /**
@@ -189,10 +188,10 @@ const getResizedThumbnail = async (thumbnailUrl: string): Promise<ThumbnailRespo
 };
 
 const uploadThumbnail = async (auth, videoId: string, thumbnailUrl: string) => {
-    const youtube = google.youtube('v3');
+    const service = google.youtube('v3');
     const thumbnailResponse = await getResizedThumbnail(thumbnailUrl);
 
-    await youtube.thumbnails.set(
+    await service.thumbnails.set(
         {
             auth,
             videoId,
