@@ -5,6 +5,7 @@ import { pipeline } from 'stream';
 import { createWriteStream, existsSync, mkdirSync } from 'fs';
 import { execSync } from 'child_process';
 import { config } from 'dotenv';
+import { argv } from 'yargs';
 import { Entry, YappliResponse } from "./response";
 import { YoutubeUploader } from "./youtube-uploader";
 
@@ -29,10 +30,32 @@ const YAPPLI_INFO = {
 
 const API_ENDPOINT = `${YAPPLI_INFO.protocol}://${YAPPLI_INFO.host}:${YAPPLI_INFO.port}${YAPPLI_INFO.apiPath}`;
 
-const ENDPOINTS = {
-    normalVideos: `${API_ENDPOINT}/tab/bio/a608b295`,
-    wanokokoroVideos: `${API_ENDPOINT}/tab/bio/b6ce08d3`,
-    specialVideos: `${API_ENDPOINT}/tab/bio/a1e886ec`,
+type ENDPOINT = {
+    endpoint: string;
+    titlePrefix: string;
+    skipVideoDetail: boolean;
+};
+
+type ENDPOINTS = {
+    [name: string]: ENDPOINT;
+};
+
+const ENDPOINTS: ENDPOINTS = {
+    normalVideos: {
+        endpoint: `${API_ENDPOINT}/tab/bio/a608b295`,
+        titlePrefix: '【土井善治の和食】',
+        skipVideoDetail: false,
+    },
+    wanokokoroVideos: {
+        endpoint: `${API_ENDPOINT}/tab/bio/b6ce08d3`,
+        titlePrefix: '【土井善治の和のこころ】',
+        skipVideoDetail: true,
+    },
+    specialVideos: {
+        endpoint: `${API_ENDPOINT}/tab/bio/a1e886ec`,
+        titlePrefix: '【土井善治のスペシャル料理】',
+        skipVideoDetail: false,
+    },
 };
 
 const getEntries = async (endpoint: string) => {
@@ -76,6 +99,15 @@ const getVideoTitle = (videoDetail: Array<Entry>): string => {
     return videoDetail[0].title.replace(/(\s|\/|\.)/g, '');
 };
 
+const getVideoDescription = (entryDetail: Array<Entry>): string => {
+    return entryDetail.map(entry => { return entry.summary; }).filter(line => !!line).join('\n');
+};
+
+const getVideoThumbnailUrl = (videoDetail: Array<Entry>): string => {
+    if (!videoDetail || !videoDetail[0].content._src) throw new Error('unexpected video url');
+    return videoDetail[0].content._src;
+};
+
 const findOrCreateDirectory = (endpointKey: string) => {
     const directoryPath = join(process.env.VIDEO_DEST, endpointKey);
     if (!existsSync(directoryPath)) {
@@ -112,18 +144,21 @@ const convertM3u8ToMp4 = async (m3u8: string, title: string, directory: string) 
     return output;
 };
 
-const downloadVideos = async (endpoint: [string, string]) => {
-    const entries = await getEntries(endpoint[1]);
+const downloadVideos = async (endpoint: [string, ENDPOINT]) => {
+    const entries = await getEntries(endpoint[1].endpoint);
     for(const entry of entries) {
         try {
             const entryData = await getEntryDetail(entry);
-            const videoData = endpoint[0] === 'wanokokoroVideos' ? entryData : await getVideoDetail(entryData);
+            const videoData = endpoint[1].skipVideoDetail ? entryData : await getVideoDetail(entryData);
             const videoUrl = getVideoUrl(videoData);
             const videoTitle = getVideoTitle(videoData);
+            const videoDescription = getVideoDescription(entryData);
+            const videoThumbnailUrl = getVideoThumbnailUrl(videoData);
             const directory = findOrCreateDirectory(endpoint[0]);
             const m3u8 = await downloadM3u8(videoUrl, videoTitle, directory);
             const mp4 = await convertM3u8ToMp4(m3u8, videoTitle, directory);
-            // YoutubeUploader(mp4);
+            const finalVideoTitle = `${endpoint[1].titlePrefix}${videoTitle}`;
+            await YoutubeUploader(mp4, finalVideoTitle, videoDescription, videoThumbnailUrl);
         } catch (err) {}
     }
 };
