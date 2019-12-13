@@ -190,7 +190,6 @@ const videoExists = (videoTitle: string) => {
     }
 
     const videoList = JSON.parse(readFileSync(pathToUploadedVideoListFile, 'utf8'));
-    console.log(videoList);
     const videoExists = videoList.includes(videoTitle);
     if (!videoExists) {
         videoList.push(videoTitle);
