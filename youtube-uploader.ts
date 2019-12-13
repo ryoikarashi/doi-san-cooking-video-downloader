@@ -1,12 +1,13 @@
 const sharp = require('sharp');
 import fetch from 'node-fetch';
-import { readFile, writeFile, mkdirSync, statSync, createReadStream, createWriteStream, existsSync, writeFileSync, readFileSync } from 'fs';
+import { mkdirSync, statSync, createReadStream, createWriteStream, existsSync, writeFileSync, readFileSync } from 'fs';
 import { createInterface, clearLine, cursorTo } from 'readline';
 import { google } from 'googleapis';
 import { config } from 'dotenv';
 import { promisify } from "util";
 import { pipeline } from "stream";
 import { basename, join } from "path";
+import { argv } from 'yargs';
 
 const OAuth2 = google.auth.OAuth2;
 
@@ -25,16 +26,16 @@ const TOKEN_FILE_NAME = 'youtube-uploader.json';
 const TOKEN_PATH = `${TOKEN_DIR}${TOKEN_FILE_NAME}`;
 
 // Load client secrets from a local file.
-export const YoutubeUploader = (videoFilePath: string, videoTitle: string, videoDescription: string, thumbnailUrl: string) => {
-    readFile('client_secret.json', (err, content) => {
-        if (err) {
-            console.log(`Error loading client secret file: ${err}`);
-            return;
-        }
+export const YoutubeUploader = (videoFilePath: string, videoTitle: string, videoDescription: string, thumbnailUrl: string) => new Promise (resolve => {
+    if (argv.upload !== true) return;
+    try {
+        const content = JSON.parse(readFileSync('client_secret.json', 'utf8'));
         // Authorize a client with the loaded credentials, then call the YouTube API.
-        authorize(JSON.parse(`${content}`), startUploadingVideoAndThumbnail(videoFilePath, videoTitle, videoDescription, thumbnailUrl));
-    });
-};
+        authorize(content, startUploadingVideoAndThumbnail(videoFilePath, videoTitle, videoDescription, thumbnailUrl, resolve));
+    } catch (err) {
+        console.log(err);
+    }
+});
 
 /**
  * Create an OAuth2 client with the given credentials, and then execute the
@@ -49,15 +50,14 @@ const authorize = (credentials, callback) => {
     const redirectUrl = credentials.installed.redirect_uris[0];
     const oauth2Client = new OAuth2(clientId, clientSecret, redirectUrl);
 
-    // Check if we have previously stored a token.
-    readFile(TOKEN_PATH, (err, token) => {
-        if (err) {
-            getNewToken(oauth2Client, callback);
-        } else {
-            oauth2Client.credentials = JSON.parse(`${token}`);
-            callback(oauth2Client);
-        }
-    });
+    try {
+        // Check if we have previously stored a token.
+        oauth2Client.credentials = JSON.parse(readFileSync(TOKEN_PATH, 'utf8'));
+        callback(oauth2Client);
+    } catch (err) {
+        getNewToken(oauth2Client, callback);
+    }
+
 };
 
 /**
@@ -105,10 +105,9 @@ const storeToken = (token) => {
             throw err;
         }
     }
-    writeFile(TOKEN_PATH, JSON.stringify(token), (err) => {
-        if (err) throw err;
-        console.log(`Token stored to ${TOKEN_PATH}`);
-    });
+
+    writeFileSync(TOKEN_PATH, JSON.stringify(token));
+    console.log(`Token stored to ${TOKEN_PATH}`);
 };
 
 /**
@@ -119,12 +118,13 @@ const storeToken = (token) => {
  * @param {String} videoDescription Description of a video
  * @param {String} thumbnailUrl Thumbnail url of a video
  */
-const startUploadingVideoAndThumbnail = (videoFilePath: string, videoTitle: string, videoDescription: string, thumbnailUrl: string) => async (auth) => {
+const startUploadingVideoAndThumbnail = (videoFilePath: string, videoTitle: string, videoDescription: string, thumbnailUrl: string, resolve) => async (auth) => {
     if (!isEnvDataValid()) return;
     const { id } = await uploadVideo(auth, videoFilePath, videoTitle, videoDescription);
     if (!id) return;
-    await addUploadedVideoToPlaylist(auth, id);
     await uploadThumbnail(auth, id, thumbnailUrl);
+    argv.playlist === true && await addUploadedVideoToPlaylist(auth, id);
+    resolve();
 };
 
 /**
@@ -132,13 +132,13 @@ const startUploadingVideoAndThumbnail = (videoFilePath: string, videoTitle: stri
  *
  */
 const isEnvDataValid = () => {
-    if (!process.env.PLAYLIST_ID) {
+    if (argv.playlist === true && !process.env.PLAYLIST_ID) {
         console.log('Invalid `PLAYLIST_ID`');
         return false;
     }
 
     if (!process.env.THUMBNAIL_DEST) {
-        console.log('Invalid `THUMBNAIL_DEST`')
+        console.log('Invalid `THUMBNAIL_DEST`');
         return false;
     }
 
@@ -190,9 +190,11 @@ const videoExists = (videoTitle: string) => {
     }
 
     const videoList = JSON.parse(readFileSync(pathToUploadedVideoListFile, 'utf8'));
+    console.log(videoList);
     const videoExists = videoList.includes(videoTitle);
     if (!videoExists) {
-        const json = JSON.stringify(videoList.push(videoTitle));
+        videoList.push(videoTitle);
+        const json = JSON.stringify(videoList);
         writeFileSync(pathToUploadedVideoListFile, json);
         return false;
     }

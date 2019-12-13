@@ -5,6 +5,7 @@ import { pipeline } from 'stream';
 import { createWriteStream, existsSync, mkdirSync } from 'fs';
 import { execSync } from 'child_process';
 import { config } from 'dotenv';
+import { argv } from 'yargs';
 import { Entry, YappliResponse } from "./response";
 import { YoutubeUploader } from "./youtube-uploader";
 
@@ -157,7 +158,7 @@ const downloadVideos = async (endpoint: [string, ENDPOINT]) => {
             const m3u8 = await downloadM3u8(videoUrl, videoTitle, directory);
             const mp4 = await convertM3u8ToMp4(m3u8, videoTitle, directory);
             const finalVideoTitle = `${endpoint[1].titlePrefix}${videoTitle}`;
-            YoutubeUploader(mp4, finalVideoTitle, videoDescription, videoThumbnailUrl);
+            await YoutubeUploader(mp4, finalVideoTitle, videoDescription, videoThumbnailUrl);
         } catch (err) {}
     }
 };
