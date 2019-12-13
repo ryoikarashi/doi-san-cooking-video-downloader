@@ -1,12 +1,12 @@
 const sharp = require('sharp');
 import fetch from 'node-fetch';
-import { readFile, writeFile, mkdirSync, statSync, createReadStream, createWriteStream } from 'fs';
+import { readFile, writeFile, mkdirSync, statSync, createReadStream, createWriteStream, existsSync, writeFileSync, readFileSync } from 'fs';
 import { createInterface, clearLine, cursorTo } from 'readline';
 import { google } from 'googleapis';
 import { config } from 'dotenv';
 import { promisify } from "util";
 import { pipeline } from "stream";
-import {basename, join} from "path";
+import { basename, join } from "path";
 
 const OAuth2 = google.auth.OAuth2;
 
@@ -14,8 +14,9 @@ const OAuth2 = google.auth.OAuth2;
 config();
 
 // If modifying these scopes, delete your previously saved credentials
-// at ./.credentials/youtube-nodejs-quickstart.json
+// ./.credentials/youtube-uploader.json
 const SCOPES = [
+    'https://www.googleapis.com/auth/youtube',
     'https://www.googleapis.com/auth/youtube.readonly',
     'https://www.googleapis.com/auth/youtube.upload',
 ];
@@ -25,7 +26,7 @@ const TOKEN_PATH = `${TOKEN_DIR}${TOKEN_FILE_NAME}`;
 
 // Load client secrets from a local file.
 export const YoutubeUploader = (videoFilePath: string, videoTitle: string, videoDescription: string, thumbnailUrl: string) => {
-    readFile('client_secret.json', function processClientSecrets(err, content) {
+    readFile('client_secret.json', (err, content) => {
         if (err) {
             console.log(`Error loading client secret file: ${err}`);
             return;
@@ -42,14 +43,14 @@ export const YoutubeUploader = (videoFilePath: string, videoTitle: string, video
  * @param {Object} credentials The authorization client credentials.
  * @param {function} callback The callback to call with the authorized client.
  */
-function authorize(credentials, callback) {
+const authorize = (credentials, callback) => {
     const clientSecret = credentials.installed.client_secret;
     const clientId = credentials.installed.client_id;
     const redirectUrl = credentials.installed.redirect_uris[0];
     const oauth2Client = new OAuth2(clientId, clientSecret, redirectUrl);
 
     // Check if we have previously stored a token.
-    readFile(TOKEN_PATH, function(err, token) {
+    readFile(TOKEN_PATH, (err, token) => {
         if (err) {
             getNewToken(oauth2Client, callback);
         } else {
@@ -57,7 +58,7 @@ function authorize(credentials, callback) {
             callback(oauth2Client);
         }
     });
-}
+};
 
 /**
  * Get and store new token after prompting for user authorization, and then
@@ -67,7 +68,7 @@ function authorize(credentials, callback) {
  * @param {getEventsCallback} callback The callback to call with the authorized
  *     client.
  */
-function getNewToken(oauth2Client, callback) {
+const getNewToken = (oauth2Client, callback) => {
     const authUrl = oauth2Client.generateAuthUrl({
         access_type: 'offline',
         scope: SCOPES
@@ -77,9 +78,9 @@ function getNewToken(oauth2Client, callback) {
         input: process.stdin,
         output: process.stdout
     });
-    rl.question('Enter the code from that page here: ', function(code) {
+    rl.question('Enter the code from that page here: ', (code) => {
         rl.close();
-        oauth2Client.getToken(code, function(err, token) {
+        oauth2Client.getToken(code, (err, token) => {
             if (err) {
                 console.log('Error while trying to retrieve access token', err);
                 return;
@@ -89,14 +90,14 @@ function getNewToken(oauth2Client, callback) {
             callback(oauth2Client);
         });
     });
-}
+};
 
 /**
  * Store token to disk be used in later program executions.
  *
  * @param {Object} token The token to store to disk.
  */
-function storeToken(token) {
+const storeToken = (token) => {
     try {
         mkdirSync(TOKEN_DIR);
     } catch (err) {
@@ -108,7 +109,7 @@ function storeToken(token) {
         if (err) throw err;
         console.log(`Token stored to ${TOKEN_PATH}`);
     });
-}
+};
 
 /**
  * Start uploading a video and its thumbnail
@@ -119,12 +120,88 @@ function storeToken(token) {
  * @param {String} thumbnailUrl Thumbnail url of a video
  */
 const startUploadingVideoAndThumbnail = (videoFilePath: string, videoTitle: string, videoDescription: string, thumbnailUrl: string) => async (auth) => {
+    if (!isEnvDataValid()) return;
     const { id } = await uploadVideo(auth, videoFilePath, videoTitle, videoDescription);
+    if (!id) return;
+    await addUploadedVideoToPlaylist(auth, id);
     await uploadThumbnail(auth, id, thumbnailUrl);
 };
 
 /**
- * Lists the names and IDs of up to 10 files.
+ * Check if environment variables are valid
+ *
+ */
+const isEnvDataValid = () => {
+    if (!process.env.PLAYLIST_ID) {
+        console.log('Invalid `PLAYLIST_ID`');
+        return false;
+    }
+
+    if (!process.env.THUMBNAIL_DEST) {
+        console.log('Invalid `THUMBNAIL_DEST`')
+        return false;
+    }
+
+    return true;
+};
+
+/**
+ * Add a video to a playlist
+ *
+ * @param auth
+ * @param {String} youtubeVideoId
+ */
+const addUploadedVideoToPlaylist = async (auth, youtubeVideoId: string) => {
+    const service = google.youtube('v3');
+    const res = await service.playlistItems.insert(
+        {
+            auth,
+            part: 'id,snippet,status',
+            requestBody: {
+                snippet: {
+                    playlistId: process.env.PLAYLIST_ID,
+                    resourceId: {
+                        kind: 'youtube#video',
+                        videoId: youtubeVideoId,
+                    },
+                },
+                status: {
+                    privacyStatus: 'private',
+                },
+            },
+        },
+    );
+
+    return res.data;
+};
+
+/**
+ * Check if a video to upload is already uploaded on youtube
+ *
+ * @param {String} videoTitle
+ */
+const videoExists = (videoTitle: string) => {
+    const uploadedVideoListFile = 'uploaded_video_list.json';
+    const pathToUploadedVideoListFile = join(process.env.VIDEO_DEST, uploadedVideoListFile);
+    if (!existsSync(pathToUploadedVideoListFile)) {
+        const json = JSON.stringify([videoTitle]);
+        writeFileSync(pathToUploadedVideoListFile, json);
+        return false;
+    }
+
+    const videoList = JSON.parse(readFileSync(pathToUploadedVideoListFile, 'utf8'));
+    const videoExists = videoList.includes(videoTitle);
+    if (!videoExists) {
+        const json = JSON.stringify(videoList.push(videoTitle));
+        writeFileSync(pathToUploadedVideoListFile, json);
+        return false;
+    }
+
+    return true;
+};
+
+/**
+ * Upload a video to youtube
  *
  * @param auth
  * @param {String} videoFilePath Path to a video file
@@ -132,9 +209,12 @@ const startUploadingVideoAndThumbnail = (videoFilePath: string, videoTitle: stri
  * @param {String} videoDescription Description of a video
  */
 const uploadVideo = async (auth, videoFilePath: string, videoTitle: string, videoDescription: string) => {
-    console.log(`Uploading ${videoFilePath}...`);
     const service = google.youtube('v3');
     const fileSize = statSync(videoFilePath).size;
+    if (videoExists(videoTitle)) {
+        console.log(`[CANCEL] ${videoTitle} is already uploaded.`);
+        return { id : null };
+    }
     const res = await service.videos.insert(
         {
             auth,
@@ -171,6 +251,12 @@ type ThumbnailResponse = {
     contentType: string;
     contentLength: string;
 };
+
+/**
+ * Resize the original video thumbnail (Youtube requires images less than 2MB)
+ *
+ * @param {String} thumbnailUrl
+ */
 const getResizedThumbnail = async (thumbnailUrl: string): Promise<ThumbnailResponse> => {
     const output = join(process.env.THUMBNAIL_DEST, basename(thumbnailUrl));
     const response = await fetch(thumbnailUrl);
@@ -187,6 +273,13 @@ const getResizedThumbnail = async (thumbnailUrl: string): Promise<ThumbnailRespo
     };
 };
 
+/**
+ * Upload a video thumbnail
+ *
+ * @param auth
+ * @param {String} videoId
+ * @param {String} thumbnailUrl
+ */
 const uploadThumbnail = async (auth, videoId: string, thumbnailUrl: string) => {
     const service = google.youtube('v3');
     const thumbnailResponse = await getResizedThumbnail(thumbnailUrl);
@@ -210,4 +303,3 @@ const uploadThumbnail = async (auth, videoId: string, thumbnailUrl: string) => {
         },
     );
 };
-

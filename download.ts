@@ -29,10 +29,32 @@ const YAPPLI_INFO = {
 
 const API_ENDPOINT = `${YAPPLI_INFO.protocol}://${YAPPLI_INFO.host}:${YAPPLI_INFO.port}${YAPPLI_INFO.apiPath}`;
 
-const ENDPOINTS = {
-    normalVideos: `${API_ENDPOINT}/tab/bio/a608b295`,
-    wanokokoroVideos: `${API_ENDPOINT}/tab/bio/b6ce08d3`,
-    specialVideos: `${API_ENDPOINT}/tab/bio/a1e886ec`,
+type ENDPOINT = {
+    endpoint: string;
+    titlePrefix: string;
+    skipVideoDetail: boolean;
+};
+
+type ENDPOINTS = {
+    [name: string]: ENDPOINT;
+};
+
+const ENDPOINTS: ENDPOINTS = {
+    normalVideos: {
+        endpoint: `${API_ENDPOINT}/tab/bio/a608b295`,
+        titlePrefix: '【土井善治の和食】',
+        skipVideoDetail: false,
+    },
+    wanokokoroVideos: {
+        endpoint: `${API_ENDPOINT}/tab/bio/b6ce08d3`,
+        titlePrefix: '【土井善治の和のこころ】',
+        skipVideoDetail: true,
+    },
+    specialVideos: {
+        endpoint: `${API_ENDPOINT}/tab/bio/a1e886ec`,
+        titlePrefix: '【土井善治のスペシャル料理】',
+        skipVideoDetail: false,
+    },
 };
 
 const getEntries = async (endpoint: string) => {
@@ -121,12 +143,12 @@ const convertM3u8ToMp4 = async (m3u8: string, title: string, directory: string) 
     return output;
 };
 
-const downloadVideos = async (endpoint: [string, string]) => {
-    const entries = await getEntries(endpoint[1]);
+const downloadVideos = async (endpoint: [string, ENDPOINT]) => {
+    const entries = await getEntries(endpoint[1].endpoint);
     for(const entry of entries) {
         try {
             const entryData = await getEntryDetail(entry);
-            const videoData = endpoint[0] === 'wanokokoroVideos' ? entryData : await getVideoDetail(entryData);
+            const videoData = endpoint[1].skipVideoDetail ? entryData : await getVideoDetail(entryData);
             const videoUrl = getVideoUrl(videoData);
             const videoTitle = getVideoTitle(videoData);
             const videoDescription = getVideoDescription(entryData);
@@ -134,9 +156,8 @@ const downloadVideos = async (endpoint: [string, string]) => {
             const directory = findOrCreateDirectory(endpoint[0]);
             const m3u8 = await downloadM3u8(videoUrl, videoTitle, directory);
             const mp4 = await convertM3u8ToMp4(m3u8, videoTitle, directory);
-            const finalVideoTitle = `【土井善治の和食】${videoTitle}`;
+            const finalVideoTitle = `${endpoint[1].titlePrefix}${videoTitle}`;
             YoutubeUploader(mp4, finalVideoTitle, videoDescription, videoThumbnailUrl);
-            break;
         } catch (err) {}
     }
 };
@@ -148,6 +169,5 @@ const downloadVideos = async (endpoint: [string, string]) => {
         console.log(`Downloading ${endpoint[0]}`);
         console.log('-----------------------------------------');
         await downloadVideos(endpoint);
-        break;
     }
 })();

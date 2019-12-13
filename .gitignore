@@ -91,6 +91,7 @@ typings/
 
 videos/**/*.m3u8
 videos/**/*.mp4
+videos/uploaded_video_list.json
 download.js
 client_secret.json
 youtube-uploader.js
