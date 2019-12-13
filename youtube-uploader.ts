@@ -1,6 +1,6 @@
 const sharp = require('sharp');
 import fetch from 'node-fetch';
-import { readFile, writeFile, mkdirSync, statSync, createReadStream, readFileSync, createWriteStream } from 'fs';
+import { readFile, writeFile, mkdirSync, statSync, createReadStream, createWriteStream } from 'fs';
 import { createInterface, clearLine, cursorTo } from 'readline';
 import { google } from 'googleapis';
 import { config } from 'dotenv';
