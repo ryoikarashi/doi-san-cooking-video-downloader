@@ -93,6 +93,7 @@ videos/**/*.m3u8
 videos/**/*.mp4
 videos/uploaded_video_list.json
 download.js
+downloader.js
 client_secret.json
 youtube-uploader.js
 .credentials

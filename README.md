@@ -26,14 +26,32 @@ API_VERSION=YAPPLI_API_VERSION
 USER_AGENT=YOUR_USER_AGENT
 X_UDID=YOUR_X_UDID
 X_ADID=YOUR_X_ADID
-VIDEO_DEST='./videos' (You can change it to whatever you want)
+VIDEO_DEST='./videos' (You can change it to any directory you want)
+THUMBNAIL_DEST='./thumbnails' (You can change it to any directory you want)
+PLAYLIST_ID=YOUR_PLAYLIST_ID (Your youtube playlist ID *required when you add `--playlist` option)
 ```
 
-Finally, run this code below.
+Then compile typescript to javascript
 
 ```bash
-npx tsc download.ts && node download.js
+npx tsc downloader.ts
 ```
+
+Finally run this code below.
+
+```bash
+node downloader.js
+```
+
+You can also specify some options. Check the list below.
+
+## Options
+
+| option | description |
+| ------- | ----------- |
+| `--upload` | upload downloaded videos to Youtube (private) |
+| `--playlist` | add uploaded videos to playlist (Requires `--upload` option.) |
+
 
 ## Notes
 
