@@ -24,6 +24,8 @@ const SCOPES = [
 const TOKEN_DIR = './.credentials/';
 const TOKEN_FILE_NAME = 'youtube-uploader.json';
 const TOKEN_PATH = `${TOKEN_DIR}${TOKEN_FILE_NAME}`;
+const UPLOADED_VIDEO_LIST_FILE = 'uploaded_video_list.json';
+const PATH_TO_UPLOADED_VIDEO_LIST_FILE = join(process.env.VIDEO_DEST, UPLOADED_VIDEO_LIST_FILE);
 
 // Load client secrets from a local file.
 export const YoutubeUploader = (videoFilePath: string, videoTitle: string, videoDescription: string, thumbnailUrl: string) => new Promise (resolve => {
@@ -119,11 +121,24 @@ const storeToken = (token) => {
  * @param {String} thumbnailUrl Thumbnail url of a video
  */
 const startUploadingVideoAndThumbnail = (videoFilePath: string, videoTitle: string, videoDescription: string, thumbnailUrl: string, resolve) => async (auth) => {
-    if (!isEnvDataValid()) return;
-    const { id } = await uploadVideo(auth, videoFilePath, videoTitle, videoDescription);
-    if (!id) return resolve();
-    await uploadThumbnail(auth, id, thumbnailUrl);
-    argv.playlist === true && await addUploadedVideoToPlaylist(auth, id);
+    if (!isEnvDataValid()) {
+        return resolve();
+    }
+
+    if (videoExists(videoTitle)) {
+        console.log(`[CANCEL] ${videoTitle} is already uploaded.`);
+        return resolve();
+    }
+
+    try {
+        const { id } = await uploadVideo(auth, videoFilePath, videoTitle, videoDescription);
+        await uploadThumbnail(auth, id, thumbnailUrl);
+        argv.playlist === true && await addUploadedVideoToPlaylist(auth, id);
+    } catch (err) {
+        removeVideoFromList(videoTitle);
+        throw err;
+    }
+
     return resolve();
 };
 
@@ -176,29 +191,49 @@ const addUploadedVideoToPlaylist = async (auth, youtubeVideoId: string) => {
 };
 
 /**
+ * Remove a video from list
+ *
+ * @param {String} videoTitle
+ */
+const removeVideoFromList = (videoTitle: string) => {
+    const videoList = JSON.parse(readFileSync(PATH_TO_UPLOADED_VIDEO_LIST_FILE, 'utf8'));
+    const index = videoList.indexOf(videoTitle);
+    videoList.splice(index, 1);
+    const json = JSON.stringify(videoList);
+    writeFileSync(PATH_TO_UPLOADED_VIDEO_LIST_FILE, json);
+};
+
+/**
+ * Add a video to list
+ *
+ * @param {String} videoTitle
+ * @param videoList
+ */
+const addVideoToList = (videoTitle: string, videoList: string[]) => {
+    videoList.push(videoTitle);
+    const json = JSON.stringify(videoList);
+    writeFileSync(PATH_TO_UPLOADED_VIDEO_LIST_FILE, json);
+};
+
+/**
  * Check if a video to upload is already uploaded on youtube
  *
  * @param {String} videoTitle
  */
 const videoExists = (videoTitle: string) => {
-    const uploadedVideoListFile = 'uploaded_video_list.json';
-    const pathToUploadedVideoListFile = join(process.env.VIDEO_DEST, uploadedVideoListFile);
-    if (!existsSync(pathToUploadedVideoListFile)) {
-        const json = JSON.stringify([videoTitle]);
-        writeFileSync(pathToUploadedVideoListFile, json);
+    if (!existsSync(PATH_TO_UPLOADED_VIDEO_LIST_FILE)) {
+        addVideoToList(videoTitle, []);
         return false;
     }
 
-    const videoList = JSON.parse(readFileSync(pathToUploadedVideoListFile, 'utf8'));
+    const videoList = JSON.parse(readFileSync(PATH_TO_UPLOADED_VIDEO_LIST_FILE, 'utf8'));
     const videoExists = videoList.includes(videoTitle);
+
     if (!videoExists) {
-        videoList.push(videoTitle);
-        const json = JSON.stringify(videoList);
-        writeFileSync(pathToUploadedVideoListFile, json);
-        return false;
+        addVideoToList(videoTitle, videoList);
     }
 
-    return true;
+    return videoExists;
 };
 
 /**
@@ -212,10 +247,7 @@ const videoExists = (videoTitle: string) => {
 const uploadVideo = async (auth, videoFilePath: string, videoTitle: string, videoDescription: string) => {
     const service = google.youtube('v3');
     const fileSize = statSync(videoFilePath).size;
-    if (videoExists(videoTitle)) {
-        console.log(`[CANCEL] ${videoTitle} is already uploaded.`);
-        return { id : null };
-    }
+
     const res = await service.videos.insert(
         {
             auth,
