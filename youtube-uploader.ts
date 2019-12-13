@@ -121,10 +121,10 @@ const storeToken = (token) => {
 const startUploadingVideoAndThumbnail = (videoFilePath: string, videoTitle: string, videoDescription: string, thumbnailUrl: string, resolve) => async (auth) => {
     if (!isEnvDataValid()) return;
     const { id } = await uploadVideo(auth, videoFilePath, videoTitle, videoDescription);
-    if (!id) return;
+    if (!id) return resolve();
     await uploadThumbnail(auth, id, thumbnailUrl);
     argv.playlist === true && await addUploadedVideoToPlaylist(auth, id);
-    resolve();
+    return resolve();
 };
 
 /**
