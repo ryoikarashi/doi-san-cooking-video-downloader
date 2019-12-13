@@ -28,13 +28,14 @@ const UPLOADED_VIDEO_LIST_FILE = 'uploaded_video_list.json';
 const PATH_TO_UPLOADED_VIDEO_LIST_FILE = join(process.env.VIDEO_DEST, UPLOADED_VIDEO_LIST_FILE);
 
 // Load client secrets from a local file.
-export const YoutubeUploader = (videoFilePath: string, videoTitle: string, videoDescription: string, thumbnailUrl: string) => new Promise (resolve => {
-    if (argv.upload !== true) return;
+export const YoutubeUploader = (videoFilePath: string, videoTitle: string, videoDescription: string, thumbnailUrl: string) => new Promise ((resolve, reject) => {
+    if (argv.upload !== true) return resolve();
     try {
         const content = JSON.parse(readFileSync('client_secret.json', 'utf8'));
         // Authorize a client with the loaded credentials, then call the YouTube API.
         authorize(content, startUploadingVideoAndThumbnail(videoFilePath, videoTitle, videoDescription, thumbnailUrl, resolve));
     } catch (err) {
+        reject();
         console.log(err);
     }
 });
