@@ -76,6 +76,15 @@ const getVideoTitle = (videoDetail: Array<Entry>): string => {
     return videoDetail[0].title.replace(/(\s|\/|\.)/g, '');
 };
 
+const getVideoDescription = (entryDetail: Array<Entry>): string => {
+    return entryDetail.map(entry => { return entry.summary; }).filter(line => !!line).join('\n');
+};
+
+const getVideoThumbnailUrl = (videoDetail: Array<Entry>): string => {
+    if (!videoDetail || !videoDetail[0].content._src) throw new Error('unexpected video url');
+    return videoDetail[0].content._src;
+};
+
 const findOrCreateDirectory = (endpointKey: string) => {
     const directoryPath = join(process.env.VIDEO_DEST, endpointKey);
     if (!existsSync(directoryPath)) {
@@ -120,10 +129,14 @@ const downloadVideos = async (endpoint: [string, string]) => {
             const videoData = endpoint[0] === 'wanokokoroVideos' ? entryData : await getVideoDetail(entryData);
             const videoUrl = getVideoUrl(videoData);
             const videoTitle = getVideoTitle(videoData);
+            const videoDescription = getVideoDescription(entryData);
+            const videoThumbnailUrl = getVideoThumbnailUrl(videoData);
             const directory = findOrCreateDirectory(endpoint[0]);
             const m3u8 = await downloadM3u8(videoUrl, videoTitle, directory);
             const mp4 = await convertM3u8ToMp4(m3u8, videoTitle, directory);
-            // YoutubeUploader(mp4);
+            const finalVideoTitle = `【土井善治の和食】${videoTitle}`;
+            YoutubeUploader(mp4, finalVideoTitle, videoDescription, videoThumbnailUrl);
+            break;
         } catch (err) {}
     }
 };
@@ -135,5 +148,6 @@ const downloadVideos = async (endpoint: [string, string]) => {
         console.log(`Downloading ${endpoint[0]}`);
         console.log('-----------------------------------------');
         await downloadVideos(endpoint);
+        break;
     }
 })();

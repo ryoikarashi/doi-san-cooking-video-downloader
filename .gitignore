@@ -94,3 +94,4 @@ videos/**/*.mp4
 download.js
 client_secret.json
 youtube-uploader.js
+.credentials

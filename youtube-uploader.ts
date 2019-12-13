@@ -1,27 +1,37 @@
-import { readFile, writeFile, mkdirSync } from 'fs';
-import { createInterface } from 'readline';
+const sharp = require('sharp');
+import fetch from 'node-fetch';
+import { readFile, writeFile, mkdirSync, statSync, createReadStream, readFileSync, createWriteStream } from 'fs';
+import { createInterface, clearLine, cursorTo } from 'readline';
 import { google } from 'googleapis';
+import { config } from 'dotenv';
+import { promisify } from "util";
+import { pipeline } from "stream";
+import {basename, join} from "path";
+
 const OAuth2 = google.auth.OAuth2;
 
+// load environmental variables
+config();
+
 // If modifying these scopes, delete your previously saved credentials
-// at ~/.credentials/youtube-nodejs-quickstart.json
+// at ./.credentials/youtube-nodejs-quickstart.json
 const SCOPES = [
     'https://www.googleapis.com/auth/youtube.readonly',
     'https://www.googleapis.com/auth/youtube.upload',
 ];
-const TOKEN_DIR = `${(process.env.HOME || process.env.HOMEPATH || process.env.USERPROFILE)}/.credentials/`;
+const TOKEN_DIR = './.credentials/';
 const TOKEN_FILE_NAME = 'youtube-uploader.json';
 const TOKEN_PATH = `${TOKEN_DIR}${TOKEN_FILE_NAME}`;
 
 // Load client secrets from a local file.
-export const YoutubeUploader = (videoFilePath: string) => {
+export const YoutubeUploader = (videoFilePath: string, videoTitle: string, videoDescription: string, thumbnailUrl: string) => {
     readFile('client_secret.json', function processClientSecrets(err, content) {
         if (err) {
             console.log(`Error loading client secret file: ${err}`);
             return;
         }
         // Authorize a client with the loaded credentials, then call the YouTube API.
-        authorize(JSON.parse(`${content}`), getChannel(videoFilePath));
+        authorize(JSON.parse(`${content}`), startUploadingVideoAndThumbnail(videoFilePath, videoTitle, videoDescription, thumbnailUrl));
     });
 };
 
@@ -101,31 +111,104 @@ function storeToken(token) {
 }
 
 /**
+ * Start uploading a video and its thumbnail
+ *
+ * @param {String} videoFilePath Path to a video file
+ * @param {String} videoTitle Title of a video
+ * @param {String} videoDescription Description of a video
+ * @param {String} thumbnailUrl Thumbnail url of a video
+ */
+const startUploadingVideoAndThumbnail = (videoFilePath: string, videoTitle: string, videoDescription: string, thumbnailUrl: string) => async (auth) => {
+    // const { id } = await uploadVideo(auth, videoFilePath, videoTitle, videoDescription);
+    // await uploadThumbnail(auth, id, thumbnailUrl)
+    await uploadThumbnail(auth, 'tOUsoXzFpQw', thumbnailUrl)
+};
+
+/**
  * Lists the names and IDs of up to 10 files.
  *
- * @param {google.auth.OAuth2} auth An authorized OAuth2 client.
+ * @param auth
+ * @param {String} videoFilePath Path to a video file
+ * @param {String} videoTitle Title of a video
+ * @param {String} videoDescription Description of a video
  */
-const getChannel = (videoFilePath: string) => (auth) => {
-    console.log(`Uploading ${videoFilePath}`);
+const uploadVideo = async (auth, videoFilePath: string, videoTitle: string, videoDescription: string) => {
+    console.log(`Uploading ${videoFilePath}...`);
     const service = google.youtube('v3');
-    service.channels.list({
-        auth: auth,
-        part: 'snippet,contentDetails,statistics',
-        forUsername: 'GoogleDevelopers'
-    }, function(err, response) {
-        if (err) {
-            console.log('The API returned an error: ' + err);
-            return;
+    const fileSize = statSync(videoFilePath).size;
+    const res = await service.videos.insert(
+        {
+            auth,
+            part: 'id,snippet,status',
+            notifySubscribers: false,
+            requestBody: {
+                snippet: {
+                    title: videoTitle,
+                    description: videoDescription,
+                },
+                status: {
+                    privacyStatus: 'private',
+                },
+            },
+            media: {
+                body: createReadStream(videoFilePath),
+            },
+        },
+        {
+            onUploadProgress: evt => {
+                const progress = (evt.bytesRead / fileSize) * 100;
+                clearLine(process.stdout, 0);
+                cursorTo(process.stdout, 0, null);
+                process.stdout.write(`Uploading a video - ${Math.round(progress)}% complete`);
+            },
         }
-        const channels = response.data.items;
-        if (channels.length == 0) {
-            console.log('No channel found.');
-        } else {
-            console.log('This channel\'s ID is %s. Its title is \'%s\', and ' +
-                'it has %s views.',
-                channels[0].id,
-                channels[0].snippet.title,
-                channels[0].statistics.viewCount);
-        }
-    });
-}
+    );
+
+    return res.data;
+};
+
+type ThumbnailResponse = {
+    body: string;
+    contentType: string;
+    contentLength: string;
+};
+const getResizedThumbnail = async (thumbnailUrl: string): Promise<ThumbnailResponse> => {
+    const output = join(process.env.THUMBNAIL_DEST, basename(thumbnailUrl));
+    const response = await fetch(thumbnailUrl);
+    const streamPipeline = promisify(pipeline);
+    await streamPipeline(response.body, createWriteStream(output));
+    const data = await sharp(output)
+        .resize(1500)
+        .toFormat('jpeg');
+
+    return {
+        body: data,
+        contentLength: data.toBuffer().toString().length,
+        contentType: 'image/jpeg',
+    };
+};
+
+const uploadThumbnail = async (auth, videoId: string, thumbnailUrl: string) => {
+    const youtube = google.youtube('v3');
+    const thumbnailResponse = await getResizedThumbnail(thumbnailUrl);
+
+    await youtube.thumbnails.set(
+        {
+            auth,
+            videoId,
+            media: {
+                mimeType: thumbnailResponse.contentType,
+                body: thumbnailResponse.body,
+            },
+        },
+        {
+            onUploadProgress: evt => {
+                const progress = (evt.bytesRead / Number(thumbnailResponse.contentLength)) * 100;
+                clearLine(process.stdout, 0);
+                cursorTo(process.stdout, 0, null);
+                process.stdout.write(`Uploading a thumbnail - ${Math.round(progress)}% complete`);
+            },
+        },
+    );
+};
+
