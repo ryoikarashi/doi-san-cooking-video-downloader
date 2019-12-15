@@ -5,7 +5,6 @@ import { pipeline } from 'stream';
 import { createWriteStream, existsSync, mkdirSync } from 'fs';
 import { execSync } from 'child_process';
 import { config } from 'dotenv';
-import { argv } from 'yargs';
 import { Entry, YappliResponse } from "./response";
 import { YoutubeUploader } from "./youtube-uploader";
 
