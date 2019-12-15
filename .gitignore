@@ -92,6 +92,7 @@ typings/
 videos/**/*.m3u8
 videos/**/*.mp4
 videos/uploaded_video_list.json
+thumbnails/*
 download.js
 downloader.js
 client_secret.json
