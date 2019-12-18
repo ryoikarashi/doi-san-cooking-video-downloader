@@ -42,17 +42,17 @@ type ENDPOINTS = {
 const ENDPOINTS: ENDPOINTS = {
     normalVideos: {
         endpoint: `${API_ENDPOINT}/tab/bio/a608b295`,
-        titlePrefix: '【土井善治の和食】',
+        titlePrefix: '【土井善晴の和食】',
         skipVideoDetail: false,
     },
     wanokokoroVideos: {
         endpoint: `${API_ENDPOINT}/tab/bio/b6ce08d3`,
-        titlePrefix: '【土井善治の和のこころ】',
+        titlePrefix: '【土井善晴の和のこころ】',
         skipVideoDetail: true,
     },
     specialVideos: {
         endpoint: `${API_ENDPOINT}/tab/bio/a1e886ec`,
-        titlePrefix: '【土井善治のスペシャル料理】',
+        titlePrefix: '【土井善晴のスペシャル料理】',
         skipVideoDetail: false,
     },
 };
