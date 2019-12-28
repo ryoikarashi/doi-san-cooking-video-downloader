@@ -51,7 +51,7 @@ const ENDPOINTS: ENDPOINTS = {
         skipVideoDetail: true,
     },
     specialVideos: {
-        endpoint: `${API_ENDPOINT}/tab/bio/a1e886ec`,
+        endpoint: `${API_ENDPOINT}/tab/bio/75d0b2e4`,
         titlePrefix: '【土井善晴のスペシャル料理】',
         skipVideoDetail: false,
     },
