@@ -35,8 +35,8 @@ export const YoutubeUploader = (videoFilePath: string, videoTitle: string, video
         // Authorize a client with the loaded credentials, then call the YouTube API.
         authorize(content, startUploadingVideoAndThumbnail(videoFilePath, videoTitle, videoDescription, thumbnailUrl, resolve));
     } catch (err) {
+        console.log('Invalid client_secret.json. First of all you need to create your own project on Google cloud console and download it as json file. => https://console.cloud.google.com/projectcreate');
         reject();
-        console.log(err);
     }
 });
 
