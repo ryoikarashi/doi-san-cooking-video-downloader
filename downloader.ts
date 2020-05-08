@@ -40,6 +40,11 @@ type ENDPOINTS = {
 };
 
 const ENDPOINTS: ENDPOINTS = {
+    washokuBunka: {
+        endpoint: `${API_ENDPOINT}/tab/bio/67d74302`,
+        titlePrefix: '【特別企画 和食文化について考える】',
+        skipVideoDetail: true,
+    },
     normalVideos: {
         endpoint: `${API_ENDPOINT}/tab/bio/a608b295`,
         titlePrefix: '【土井善晴の和食】',
